@@ -1,3 +1,10 @@
+"""
+This module performs timeseries augmentation based on
+the existing UK-DALE data and generates a new augmented dataset.
+Author: George Dialektakis - DataLab AUTh
+Date: September 2022
+"""
+
 import pandas as pd
 from sdv.timeseries import PAR
 from sdv.demo import load_timeseries_demo
@@ -13,6 +20,15 @@ from matplotlib import rcParams
 
 
 def align_timeseries(mains_series: np.array, appliance_series: np.array):
+    """
+    performs alignment of mains and appliance time-series
+    input:
+            mains_series: np.array
+            appliance_series: np.array
+    output:
+            mains_series: np.array
+            appliance_series: np.array
+    """
     mains_series = mains_series[~mains_series.index.duplicated()]
     appliance_series = appliance_series[~appliance_series.index.duplicated()]
     ix = mains_series.index.intersection(appliance_series.index)
