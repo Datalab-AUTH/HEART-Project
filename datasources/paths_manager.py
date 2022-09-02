@@ -2,13 +2,13 @@ import os
 from pathlib import Path
 
 dirname = os.path.dirname(__file__)
-#UK_DALE = os.path.join(dirname, '../../Datasets/UKDALE/UKDALE.h5')
-#REDD = os.path.join(dirname, '../../Datasets/REDD/redd.h5')
-#REFIT = os.path.join(dirname, '../../Datasets/REFIT/REFIT.h5')
+#UK_DALE = os.path.join(dirname, '../../datasets/UKDALE/UKDALE.h5')
+#REDD = os.path.join(dirname, '../../datasets/REDD/redd.h5')
+#REFIT = os.path.join(dirname, '../../datasets/REFIT/REFIT.h5')
 
-UK_DALE = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/Datasets/ukdale.h5"
+UK_DALE = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5"
 
-REDD = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/Datasets/redd.h5"
+REDD = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/redd.h5"
 REFIT = ''
 
 MODEL_CKPT_PATH = 'model/'
