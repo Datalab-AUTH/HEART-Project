@@ -104,4 +104,4 @@ results/*
 /window_tuning/
 
 #local files
-./datasources/Datasets/*
+/datasources/Datasets/*
