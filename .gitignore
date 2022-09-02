@@ -102,3 +102,6 @@ results/*
 /SINGLE_BUILDING_EXP/
 /Single_Building_3fold_CV/
 /window_tuning/
+
+#local files
+./datasources/Datasets/*

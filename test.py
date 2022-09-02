@@ -21,7 +21,7 @@ def align_timeseries(mains_series: np.array, fridge_series: np.array):
     return mains_series, fridge_series
 
 
-def test_par_model():
+def par_model():
     data = load_timeseries_demo()
     print(data.head())
     entity_columns = ['Symbol']
@@ -40,7 +40,7 @@ def test_par_model():
 
 
 if __name__ == "__main__":
-    test_par_model()
+    #par_model()
     uk_dale = DataSet("/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/Datasets/ukdale.h5")
     elec = uk_dale.buildings[1].elec
 
@@ -73,11 +73,16 @@ if __name__ == "__main__":
     mains_wo_fridge_df = mains_wo_fridge.to_frame()
     mains_wo_fridge_df['timestamp'] = mains_wo_fridge_df.index
     print(mains_wo_fridge_df.head())
-    a = 1
+
+    mains_wo_fridge_df['timestamp'] = mains_wo_fridge_df['timestamp'].dt.tz_localize(None)
+
+    print(mains_wo_fridge_df.head())
 
     sequence_index = 'timestamp'
     model = PAR(
         sequence_index=sequence_index
     )
 
-    model.fit(mains_wo_fridge_df)
+    model.fit(mains_wo_fridge_df.head(10000))
+    new_data = model.sample(1)
+    print(new_data.head())
