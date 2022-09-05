@@ -60,23 +60,47 @@ def extract_appliance_timeseries(elec, appliance: str):
     appliance_series = appliance_meter.power_series_all_data()
     return appliance_series
 
-
+# Probably obsolete....just for testing...
 def subtract_from_mains(mains_series: pd.Series, appliances_series: pd.Series):
     mains_wo_appliance = mains_series.subtract(appliances_series, fill_value=0)
+    #timestamp = mains_wo_appliance.index
+    #mains_wo_appliance = mains_wo_appliance.reset_index()
     mains_wo_appliance_df = mains_wo_appliance.to_frame()
-    mains_wo_fridge_df['timestamp'] = mains_wo_appliance_df.index
+    mains_wo_appliance_df['timestamp'] = mains_wo_appliance_df.index
     print(mains_wo_appliance_df.head())
     return mains_wo_appliance_df
 
 
+def subtract_target_appliances_from_mains(mains_series: pd.Series):
+    appliances = ['microwave', 'fridge', 'washing machine', 'dish washer', 'kettle']
+
+    mains_wo_appliances = mains_series
+
+    for appliance in appliances:
+        print(appliance)
+        appliance_series = extract_appliance_timeseries(elec, appliance)
+        mains_series_aligned, appliance_series_aligned = align_timeseries(mains_series, appliance_series)
+        mains_wo_appliances = mains_wo_appliances.subtract(appliance_series_aligned, fill_value=0)
+
+    mains_wo_appliances_df = mains_wo_appliances.to_frame()
+    mains_wo_appliances_df['timestamp'] = mains_wo_appliances_df.index
+    print(mains_wo_appliances_df.head())
+    return mains_wo_appliances_df
+
+
 def augment_timeseries(timeseries_df: pd.DataFrame):
     timeseries_df['timestamp'] = timeseries_df['timestamp'].dt.tz_localize(None)
+    timeseries_df_small = timeseries_df.head(10000)
+    a = timeseries_df_small['power', 'active']
+    timeseries_df_small['new_power'] = a
+    temp_df = timeseries_df_small.iloc[:, [1, 2]].copy()
+
     sequence_index = 'timestamp'
     model = PAR(
         sequence_index=sequence_index,
     )
     # Train the model
-    model.fit(timeseries_df.head(10000))
+    model.fit(temp_df)
     # Generate new synthetic timeseries
     new_data = model.sample(1)
     print(new_data.head())
@@ -89,6 +113,8 @@ def augment_timeseries(timeseries_df: pd.DataFrame):
 if __name__ == "__main__":
     # par_model()
     uk_dale = DataSet("/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5")
+    uk_dale_df = pd.read_hdf('/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5',
+                             key='/building1/elec/meter1')
     # Select electricity data from House 1
     elec = uk_dale.buildings[1].elec
 
@@ -96,8 +122,10 @@ if __name__ == "__main__":
     # Prints mains power times series
     # print(elec.mains().power_series_all_data().head())
     mains = elec.mains()
-
     mains_series = elec.mains().power_series_all_data()
+
+    # Subtract the power consumption of the 5 target appliances from mains
+    mains_wo_appliances = subtract_target_appliances_from_mains(mains_series)
 
     fridge_series = extract_appliance_timeseries(elec, 'fridge')
 
