@@ -208,3 +208,4 @@ dependencies:
     - werkzeug==2.0.1
     - xlrd==2.0.1
     - yarl==1.6.3
+    - sdv==0.16.0
