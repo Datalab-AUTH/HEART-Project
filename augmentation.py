@@ -13,6 +13,7 @@ import nilmtk
 import matplotlib.pyplot as plt
 from nilmtk import DataSet, MeterGroup
 from matplotlib import rcParams
+import pickle
 
 
 # plt.style.use('ggplot')
@@ -37,37 +38,21 @@ def align_timeseries(mains_series: np.array, appliance_series: np.array):
     return mains_series, appliance_series
 
 
-def par_model():
-    data = load_timeseries_demo()
-    print(data.head())
-    entity_columns = ['Symbol']
-    context_columns = ['MarketCap', 'Sector', 'Industry']
-    sequence_index = 'Date'
-
-    model = PAR(
-        entity_columns=entity_columns,
-        context_columns=context_columns,
-        sequence_index=sequence_index
-    )
-
-    model.fit(data)
-    new_data = model.sample(1)
-    print(new_data.head())
-
-
 def extract_appliance_timeseries(elec, appliance: str):
     appliance_meter = elec[appliance]
     appliance_series = appliance_meter.power_series_all_data()
     return appliance_series
 
+
 # Probably obsolete....just for testing...
 def subtract_from_mains(mains_series: pd.Series, appliances_series: pd.Series):
     mains_wo_appliance = mains_series.subtract(appliances_series, fill_value=0)
-    #timestamp = mains_wo_appliance.index
-    #mains_wo_appliance = mains_wo_appliance.reset_index()
+    mains_wo_appliance_small = mains_wo_appliance[:1000]
+    pickle.dump(mains_wo_appliance_small, open('series_sample', 'wb'))
+
     mains_wo_appliance_df = mains_wo_appliance.to_frame()
     mains_wo_appliance_df['timestamp'] = mains_wo_appliance_df.index
-    print(mains_wo_appliance_df.head())
+    #print(mains_wo_appliance_df.head())
     return mains_wo_appliance_df
 
 
@@ -91,43 +76,56 @@ def subtract_target_appliances_from_mains(mains_series: pd.Series):
 def augment_timeseries(timeseries_df: pd.DataFrame):
     timeseries_df['timestamp'] = timeseries_df['timestamp'].dt.tz_localize(None)
     timeseries_df_small = timeseries_df.head(10000)
-    a = timeseries_df_small['power', 'active']
-    timeseries_df_small['new_power'] = a
-    temp_df = timeseries_df_small.iloc[:, [1, 2]].copy()
+
+    timeseries_df_small.columns = timeseries_df_small.columns.get_level_values(0)
+    print(timeseries_df_small.head())
 
     sequence_index = 'timestamp'
     model = PAR(
         sequence_index=sequence_index,
     )
     # Train the model
-    model.fit(temp_df)
+    model.fit(timeseries_df_small)
     # Generate new synthetic timeseries
     new_data = model.sample(1)
+    print('New data')
     print(new_data.head())
 
     # TODO: Augment the appliance timeseries as well before appending to mains
-    augmented_timeseries = timeseries_df.append(new_data)
+    augmented_timeseries = timeseries_df_small.append(new_data)
     return augmented_timeseries
 
 
 if __name__ == "__main__":
-    # par_model()
+    """
+    The meters for our target appliances are the following:
+        - microwave: meter13
+        - fridge: meter12
+        - washing machine: meter5
+        - dish washer: meter6
+        - kettle: meter10
+    """
     uk_dale = DataSet("/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5")
+
+    # Mains meter is meter54
     uk_dale_df = pd.read_hdf('/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5',
-                             key='/building1/elec/meter1')
+                             key='/building1/elec/meter54')
+
+    uk_dale_df = uk_dale_df.head(100)
     # Select electricity data from House 1
     elec = uk_dale.buildings[1].elec
-
-    print(elec.mains())
+    print('Submeters')
+    print(elec)
+    #print(elec.mains())
     # Prints mains power times series
     # print(elec.mains().power_series_all_data().head())
     mains = elec.mains()
     mains_series = elec.mains().power_series_all_data()
 
     # Subtract the power consumption of the 5 target appliances from mains
-    mains_wo_appliances = subtract_target_appliances_from_mains(mains_series)
+    #mains_wo_appliances = subtract_target_appliances_from_mains(mains_series)
 
-    fridge_series = extract_appliance_timeseries(elec, 'fridge')
+    fridge_series = extract_appliance_timeseries(elec, 'washing machine')
 
     mains_series_aligned, fridge_series_aligned = align_timeseries(mains_series, fridge_series)
 
