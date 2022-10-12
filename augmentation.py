@@ -73,7 +73,7 @@ def subtract_from_mains(mains_series: pd.Series, appliances_series: pd.Series):
 
 
 def subtract_target_appliances_from_mains(mains_series: pd.Series, elec):
-    appliances = ['microwave', 'fridge', 'washing machine', 'dish washer', 'kettle']
+    appliances = ['washing machine', 'dish washer']
 
     mains_wo_appliances = mains_series
 
@@ -88,28 +88,29 @@ def subtract_target_appliances_from_mains(mains_series: pd.Series, elec):
     mains_wo_appliances_df['timestamp'] = mains_wo_appliances_df.index
     print(mains_wo_appliances_df.head())
 
-    mains_wo_appliances_df.to_pickle("./dataframes/mains_wo_appliances_df.pkl")
+    mains_wo_appliances_df.to_pickle("./datasources/dataframes/mains_wo_appliances_df.pkl")
 
     # Calculate total energy in kWh for mains before and after subtraction
     mains_series_df = mains_series.to_frame()
-    #compute_total_energy(mains_series_df, mains_wo_appliances_df)
+    compute_total_energy(mains_series_df, mains_wo_appliances_df)
 
     return mains_wo_appliances_df
 
 
-def augment_timeseries(timeseries_df: pd.DataFrame, elec, mains_series):
+def generate_synthetic_mains(timeseries_df: pd.DataFrame):
     timeseries_df['timestamp'] = timeseries_df['timestamp'].dt.tz_localize(None)
     print('\n Mains length')
     print(timeseries_df.shape[0])
-    timeseries_df_small = timeseries_df.head(10000)
 
-    # Transform multi-index df to regular df
-    timeseries_df_small.columns = timeseries_df_small.columns.get_level_values(0)
-    print("Mains time-series df small: ")
-    print(timeseries_df_small.head())
-
-    if not os.path.isfile('./augmentation_models/mains_model.pkl'):
-
+    start = 0
+    end = 10000
+    for i in range(0, 30):
+        # Take 1 day at a time to train the PAR model
+        timeseries_df_small = timeseries_df[start:end]
+        # Transform multi-index df to regular df
+        timeseries_df_small.columns = timeseries_df_small.columns.get_level_values(0)
+        # print("Mains time-series df small: ")
+        # print(timeseries_df_small.head())
         sequence_index = 'timestamp'
         model = PAR(
             sequence_index=sequence_index,
@@ -118,40 +119,45 @@ def augment_timeseries(timeseries_df: pd.DataFrame, elec, mains_series):
         print('\n Fitting mains PAR model')
         start_time = time.time()
         model.fit(timeseries_df_small)
-        print("--- Training time: %s seconds ---" % (time.time() - start_time))
+        print("--- Training time for day {}: {} seconds ---".format(i, time.time() - start_time))
         # Save PAR model to disk
         model.save('./augmentation_models/mains_model.pkl')
-    else:
-        # Load already trained PAR model from disk
-        print('\n Loading mains PAR model from disk...')
-        model = PAR.load('./augmentation_models/mains_model.pkl')
-        print('-> Done!')
 
-    start_time = time.time()
-    # Generate new synthetic timeseries
-    # TODO: Check the length of the generated sequences
-    synthetic_mains = model.sample(num_sequences=8)
-    print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
+        start_time = time.time()
+        # Generate new synthetic timeseries
+        # TODO: Needs to be 1 month data ==> 30 days = 2592000 samples
 
-    print('\n New data synthetic mains')
-    print(synthetic_mains.head(20))
+        # Generate data for one day
+        # 86400 == one day data
+        synthetic_mains = model.sample(num_sequences=1, sequence_length=86400)
+        print('Generated data for day {}'.format(i))
+        print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
 
-    print(len(synthetic_mains.index))
-    print(synthetic_mains.shape[0])
+        # Store synthetic mains df to disk
+        filename = './datasources/dataframes/mains/day_' + str(i) + '.pkl'
+        synthetic_mains.to_pickle(filename)
+
+        start = start + 10000 * 10
+        end = end + 10000 * 10
+
+    print('\n Last 10 rows for original mains: ')
+    print(timeseries_df_small.tail(10))
+
+    print('\n First rows of synthetic mains')
+    print(synthetic_mains.head(10))
+
+    print('\n Last rows of synthetic mains')
+    print(synthetic_mains.tail(10))
 
     # TODO: Check the following steps
 
     exit()
 
+    """
     # Generate synthetic timeseries for each appliance
-    s_microwave_series, s_fridge_series, \
-    s_washing_machine_series, s_washer_series, s_kettle_series = augment_appliances_timeseries(elec, mains_series)
+    s_washing_machine_series, s_washer_series = augment_appliances_timeseries(elec, mains_series)
 
     # Align synthetic mains with synthetic appliance series for each appliance
-    _, s_microwave_series['power'] = align_timeseries(synthetic_mains['power'], s_microwave_series['power'])
-
-    _, s_fridge_series['power'] = align_timeseries(synthetic_mains['power'],
-                                                   s_fridge_series['power'])
 
     _, s_washing_machine_series['power'] = align_timeseries(synthetic_mains['power'],
                                                             s_washing_machine_series['power'])
@@ -159,16 +165,10 @@ def augment_timeseries(timeseries_df: pd.DataFrame, elec, mains_series):
     _, s_washer_series['power'] = align_timeseries(synthetic_mains['power'],
                                                    s_washer_series['power'])
 
-    _, s_kettle_series['power'] = align_timeseries(synthetic_mains['power'],
-                                                   s_kettle_series['power'])
-
     # Add synthetic mains with each synthetic appliance series
     synthetic_mains_before = synthetic_mains.copy()
-    synthetic_mains['power'].add(s_microwave_series['power'], fill_value=0)
-    synthetic_mains['power'].add(s_fridge_series['power'], fill_value=0)
     synthetic_mains['power'].add(s_washing_machine_series['power'], fill_value=0)
     synthetic_mains['power'].add(s_washer_series['power'], fill_value=0)
-    synthetic_mains['power'].add(s_kettle_series['power'], fill_value=0)
 
     print('Total energy before and after addition: ')
     compute_total_energy(synthetic_mains_before, synthetic_mains)
@@ -180,56 +180,55 @@ def augment_timeseries(timeseries_df: pd.DataFrame, elec, mains_series):
 
     augmented_mains = mains_df.append(synthetic_mains)
     # augmented_mains = timeseries_df.append(synthetic_mains)
-    return augmented_mains, s_microwave_series, s_fridge_series, \
-           s_washing_machine_series, s_washer_series, s_kettle_series
+    """
+    return
 
 
-def augment_appliances_timeseries(elec, mains_series):
-    microwave_series = generate_synthetic_appliance_series('microwave', elec, mains_series)
-    fridge_series = generate_synthetic_appliance_series('fridge', elec, mains_series)
-    washing_machine_series = generate_synthetic_appliance_series('washing machine', elec, mains_series)
-    washer_series = generate_synthetic_appliance_series('dish washer', elec, mains_series)
-    kettle_series = generate_synthetic_appliance_series('kettle', elec, mains_series)
+def generate_synthetic_appliance_series(elec, mains_series):
+    appliances = ['washing machine', 'dish washer']
 
-    return microwave_series, fridge_series, washing_machine_series, washer_series, kettle_series
+    for appliance in appliances:
+        sequence_index = 'timestamp'
+        appliance_series = extract_appliance_timeseries(elec, appliance)
+        mains_series_aligned, appliance_series = align_timeseries(mains_series, appliance_series)
 
+        appliance_series_df = appliance_series.to_frame()
 
-def generate_synthetic_appliance_series(appliance, elec, mains_series):
-    sequence_index = 'timestamp'
-    appliance_series = extract_appliance_timeseries(elec, appliance)
-    mains_series_aligned, appliance_series = align_timeseries(mains_series, appliance_series)
+        appliance_series_df['timestamp'] = appliance_series_df.index
+        appliance_series_df['timestamp'] = appliance_series_df['timestamp'].dt.tz_localize(None)
 
-    appliance_series_df = appliance_series.to_frame()
+        # transform multi-index dataframe to normal dataframe
+        appliance_series_df.columns = appliance_series_df.columns.get_level_values(0)
 
-    appliance_series_df['timestamp'] = appliance_series_df.index
-    appliance_series_df['timestamp'] = appliance_series_df['timestamp'].dt.tz_localize(None)
+        start = 0
+        end = 10000
+        for i in range(0, 30):
+            # Take 1 day at a time to train the PAR model
+            timeseries_df_small = appliance_series_df[start:end]
+            start_time = time.time()
 
-    # transform multi-index dataframe to normal dataframe
-    appliance_series_df.columns = appliance_series_df.columns.get_level_values(0)
+            model = PAR(
+                sequence_index=sequence_index,
+            )
+            print('\n Fitting PAR model for: {}'.format(appliance))
+            # Train the model
+            model.fit(appliance_series_df)
 
-    model_name = appliance + '_model.pkl'
-    save_path = './augmentation_models/' + model_name
+            # Generate data for one day
+            # 86400 == one day data
+            synthetic_data = model.sample(num_sequences=1, sequence_length=86400)
+            print('Generated data for appliance {} for day {}'.format(appliance, i))
+            print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
 
-    if not os.path.isfile(save_path):
-        # Create PAR model and generate synthetic data
-        model = PAR(
-            sequence_index=sequence_index,
-        )
-        print('\n Fitting PAR model for: {}'.format(appliance))
-        # Train the model
-        model.fit(appliance_series_df)
-        model.save(save_path)
-    else:
-        # Load already trained PAR model from disk
-        print('\n Loading {} PAR model from disk...'.format(appliance))
-        model = PAR.load(save_path)
-        print('-> Done!')
+            # Store synthetic mains df to disk
+            appliance_str = appliance.replace(' ', '_')
+            filename = './datasources/dataframes/appliances/' + str(appliance_str) + '/day' + str(i) + '.pkl'
+            synthetic_data.to_pickle(filename)
 
-    # TODO: Check the length of the generated sequences
-    # Generate new synthetic timeseries
-    new_data = model.sample(1)
+            start = start + 10000 * 10
+            end = end + 10000 * 10
 
-    return new_data
+    return
 
 
 def series_to_df(series):
@@ -240,6 +239,23 @@ def series_to_df(series):
     # transform multi-index dataframe to normal dataframe
     df.columns = df.columns.get_level_values(0)
     return df
+
+
+def create_mains_dataframe():
+    # Reads the pickle files of 30 days, assigns timestamp and appends to one final dataframe of mains
+    pass
+
+
+def create_appliance_dataframe(appliance):
+    # Reads the pickle files of 30 days of appliance, assigns timestamp and
+    # appends to one final dataframe of the specific appliance
+    pass
+
+
+def create_final_augmented_dataframe(mains_series, synthetic_mains_df, appliance1_df, appliance2_df):
+    mains_df = series_to_df(mains_series)
+    # Receives the dataframes of synthetic mains and appliances and forms the final augmented dataframe
+    pass
 
 
 def write_data_to_hdf5(augmented_timeseries):
@@ -262,11 +278,11 @@ if __name__ == "__main__":
         - mains: meter54
     """
     # Load dataset from file
-    uk_dale = DataSet("/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5")
+    uk_dale = DataSet("/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/ukdale.h5")
     # uk_dale_reduced = DataSet("/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale_reduced.h5")
 
     # Mains meter is meter54
-    uk_dale_df = pd.read_hdf('/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5',
+    uk_dale_df = pd.read_hdf('/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/ukdale.h5',
                              key='/building1/elec/meter54')
 
     uk_dale_df = uk_dale_df.head(100)
@@ -277,16 +293,14 @@ if __name__ == "__main__":
 
     mains = elec.mains()
     mains_series = elec.mains().power_series_all_data()
-    #print('Total energy before:')
-    #print(mains.total_energy())
 
-    if not os.path.isfile('./dataframes/mains_wo_appliances_df.pkl'):
+    if not os.path.isfile('./datasources/dataframes/mains_wo_appliances_df.pkl'):
         # Subtract the power consumption of the 5 target appliances from mains
         mains_wo_appliances = subtract_target_appliances_from_mains(mains_series, elec)
     else:
         # Read df from disk
         print('\n Loading mains without appliances df from disk...')
-        mains_wo_appliances = pd.read_pickle('./dataframes/mains_wo_appliances_df.pkl')
+        mains_wo_appliances = pd.read_pickle('./datasources/dataframes/mains_wo_appliances_df.pkl')
         print('-> Done!')
 
     """ 
@@ -295,28 +309,20 @@ if __name__ == "__main__":
                                key='/building1/elec/meter54', format='table')
     """
 
-    # fridge_series = extract_appliance_timeseries(elec, 'fridge')
-
-    # mains_series_aligned, fridge_series_aligned = align_timeseries(mains_series, fridge_series)
-
-    # mains_wo_fridge_df = subtract_from_mains(mains_series, fridge_series_aligned)
-
-    # print(mains_wo_fridge_df.head())
-
     # Augmented mains timeseries without fridge
     # TODO: Augment the appliance timeseries as well before appending to mains
-    augmented_mains, s_microwave_series, s_fridge_series, \
-    s_washing_machine_series, s_washer_series, s_kettle_series = augment_timeseries(mains_wo_appliances, elec,
-                                                                                    mains_series)
+    generate_synthetic_mains(mains_wo_appliances)
 
+    generate_synthetic_appliance_series(elec, mains_series)
+    """ 
     # Store augmented time series to .h5 file for later usage
     write_data_to_hdf5(augmented_mains)
 
     # TODO: Append each appliance synthetic df to original aligned appliance df
     # We need the original appliances dfs aligned....
-    appliances_dfs = [microwave_df, fridge_df, washing_machine_df, washer_df, kettle_df]
-
+    appliances_dfs = [washing_machine_df, washer_df]
 
     # Write each appliance df to .h5 file
     for ap_df in appliances_dfs:
         write_data_to_hdf5(ap_df)
+    """

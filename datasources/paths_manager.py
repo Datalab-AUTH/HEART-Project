@@ -6,9 +6,9 @@ dirname = os.path.dirname(__file__)
 #REDD = os.path.join(dirname, '../../datasets/REDD/redd.h5')
 #REFIT = os.path.join(dirname, '../../datasets/REFIT/REFIT.h5')
 
-UK_DALE = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/ukdale.h5"
+UK_DALE = "/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/ukdale.h5"
 
-REDD = "/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets/redd.h5"
+REDD = "/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/redd.h5"
 REFIT = ''
 
 MODEL_CKPT_PATH = 'model/'
