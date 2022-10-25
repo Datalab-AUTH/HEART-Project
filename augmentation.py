@@ -13,6 +13,7 @@ import nilmtk
 import matplotlib.pyplot as plt
 from nilmtk import DataSet, MeterGroup
 from matplotlib import rcParams
+from utils import compute_total_energy, series_to_df
 import pickle
 import os.path
 import time
@@ -20,20 +21,6 @@ import time
 
 # plt.style.use('ggplot')
 # rcParams['figure.figsize'] = (13, 10)
-
-def compute_kWh(power_in_watts):
-    power = (power_in_watts * 0.000277) / 1000
-    return power
-
-
-def compute_total_energy(mains_before, mains_after):
-    mains_before.columns = mains_before.columns.get_level_values(0)
-    total_energy_before = mains_before['power'].sum()
-    print("Total Energy of mains: {}".format(compute_kWh(total_energy_before)))
-
-    mains_after.columns = mains_after.columns.get_level_values(0)
-    total_energy_after = mains_after['power'].sum()
-    print("Total Energy of reduced mains: {}".format(compute_kWh(total_energy_after)))
 
 
 def align_timeseries(mains_series: np.array, appliance_series: np.array):
@@ -121,7 +108,7 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
         model.fit(timeseries_df_small)
         print("--- Training time for day {}: {} seconds ---".format(i, time.time() - start_time))
         # Save PAR model to disk
-        #model.save('./augmentation_models/mains_model.pkl')
+        # model.save('./augmentation_models/mains_model.pkl')
 
         start_time = time.time()
         # Generate new synthetic timeseries
@@ -129,7 +116,7 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
 
         # Generate data for one day
         # 86400 == one day data
-        seq_len = int(86400/2)
+        seq_len = int(86400 / 2)
         synthetic_mains = model.sample(num_sequences=1, sequence_length=seq_len)
         print('Generated data for day {}'.format(i))
         print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
@@ -216,7 +203,7 @@ def generate_synthetic_appliance_series(elec, mains_series):
             model.fit(appliance_series_small_df)
 
             # Generate data for one day
-            seq_len = int(86400/2)
+            seq_len = int(86400 / 2)
             synthetic_data = model.sample(num_sequences=1, sequence_length=seq_len)
             print('Generated data for appliance {} for day {}'.format(appliance, i))
             print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
@@ -232,31 +219,35 @@ def generate_synthetic_appliance_series(elec, mains_series):
     return
 
 
-def series_to_df(series):
-    df = series.to_frame()
-    df['timestamp'] = df.index
-    df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+def create_final_augmented_dataframe(mains_series):
+    # Reads the dataframes of synthetic mains and appliances and forms the final augmented dataframe
+    synthetic_mains_df = pd.read_pickle("./datasources/dataframes/synthetic_data/synthetic_mains.pkl")
+    original_mains_df = series_to_df(mains_series)
+    synthetic_dish_washer_df = pd.read_pickle('./datasources/dataframes/synthetic_data/synthetic_dish_washer.pkl')
+    synthetic_wash_machine_df = pd.read_pickle('./datasources/dataframes/synthetic_data/synthetic_washing_machine.pkl')
 
-    # transform multi-index dataframe to normal dataframe
-    df.columns = df.columns.get_level_values(0)
-    return df
+    # Alignment
+    _, synthetic_dish_washer_df['power'] = align_timeseries(synthetic_mains_df['power'],
+                                                            synthetic_dish_washer_df['power'])
 
+    _, synthetic_wash_machine_df['power'] = align_timeseries(synthetic_mains_df['power'],
+                                                             synthetic_wash_machine_df['power'])
 
-def create_mains_dataframe():
-    # Reads the pickle files of 30 days, assigns timestamp and appends to one final dataframe of mains
-    pass
+    # Add synthetic appliances dfs to synthetic mains df
+    synthetic_mains_before = synthetic_mains_df.copy()
+    synthetic_mains_df['power'].add(synthetic_dish_washer_df['power'], fill_value=0)
+    synthetic_mains_df['power'].add(synthetic_wash_machine_df['power'], fill_value=0)
 
+    print('Total energy before and after addition: ')
+    compute_total_energy(synthetic_mains_before, synthetic_mains_df)
 
-def create_appliance_dataframe(appliance):
-    # Reads the pickle files of 30 days of appliance, assigns timestamp and
-    # appends to one final dataframe of the specific appliance
-    pass
+    # TODO: Probably we need to assign the timestamp to df index
 
-
-def create_final_augmented_dataframe(mains_series, synthetic_mains_df, appliance1_df, appliance2_df):
-    mains_df = series_to_df(mains_series)
-    # Receives the dataframes of synthetic mains and appliances and forms the final augmented dataframe
-    pass
+    # Append synthetic df to original data
+    augmented_mains = original_mains_df.append(synthetic_mains_df)
+    write_path = './datasources/dataframes/final_augmented_df.pkl'
+    augmented_mains.to_pickle(write_path)
+    return augmented_mains
 
 
 def write_data_to_hdf5(augmented_timeseries):
@@ -315,6 +306,9 @@ if __name__ == "__main__":
     # generate_synthetic_mains(mains_wo_appliances)
 
     generate_synthetic_appliance_series(elec, mains_series)
+
+    create_final_augmented_dataframe(mains_series)
+    
     """ 
     # Store augmented time series to .h5 file for later usage
     write_data_to_hdf5(augmented_mains)

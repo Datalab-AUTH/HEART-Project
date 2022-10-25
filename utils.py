@@ -3,6 +3,39 @@ import pickle
 import datetime
 
 
+def series_to_df(series):
+    df = series.to_frame()
+    df['timestamp'] = df.index
+    df['timestamp'] = df['timestamp'].dt.tz_localize(None)
+
+    # transform multi-index dataframe to normal dataframe
+    df.columns = df.columns.get_level_values(0)
+    return df
+
+
+def compute_kWh(power_in_watts):
+    power = (power_in_watts * 0.000277) / 1000
+    return power
+
+
+def compute_total_energy(mains_before, mains_after):
+    mains_before.columns = mains_before.columns.get_level_values(0)
+    total_energy_before = mains_before['power'].sum()
+    print("Total Energy of mains: {}".format(compute_kWh(total_energy_before)))
+
+    mains_after.columns = mains_after.columns.get_level_values(0)
+    total_energy_after = mains_after['power'].sum()
+    print("Total Energy of reduced mains: {}".format(compute_kWh(total_energy_after)))
+
+
+def add_datetime(df, initial_datetime):
+    df['timestamp'][0] = initial_datetime
+    for i in range(len(df)):
+        df['timestamp'][i + 1] = initial_datetime + datetime.timedelta(seconds=i + 1)
+
+    return df
+
+
 def duplicate_df():
     for i in range(0, 30):
         mains_filename = './datasources/dataframes/mains/day_' + str(i) + '.pkl'
@@ -42,7 +75,7 @@ def create_mains_dataframe():
 
 def create_appliance_dataframe(appliance):
     # Reads the pickle files of 30 days, assigns timestamp and appends to one final dataframe of mains
-    appliance = pd.DataFrame()
+    appliance_df = pd.DataFrame()
     initial_datetime = datetime.datetime(2015, 10, 5, 18, 00, 00, 100000)
     for i in range(0, 30):
         print('Dataframe {}'.format(i))
@@ -53,19 +86,11 @@ def create_appliance_dataframe(appliance):
         # Add one day = 24h for each separate file
         initial_datetime = initial_datetime + datetime.timedelta(hours=24)
         temp_df = add_datetime(temp_df, initial_datetime)
-        appliance.append(temp_df)
+        appliance_df.append(temp_df)
 
     write_path = './datasources/dataframes/synthetic_data/synthetic_' + str(appliance) + '.pkl'
-    appliance.to_pickle(write_path)
+    appliance_df.to_pickle(write_path)
     return
-
-
-def add_datetime(df, initial_datetime):
-    df['timestamp'][0] = initial_datetime
-    for i in range(len(df)):
-        df['timestamp'][i + 1] = initial_datetime + datetime.timedelta(seconds=i + 1)
-
-    return df
 
 
 if __name__ == "__main__":

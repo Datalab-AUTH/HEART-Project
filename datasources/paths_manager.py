@@ -7,6 +7,7 @@ dirname = os.path.dirname(__file__)
 #REFIT = os.path.join(dirname, '../../datasets/REFIT/REFIT.h5')
 
 UK_DALE = "/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/ukdale.h5"
+UK_DALE_AUGMENTED = "/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/ukdale_augmented.h5"
 
 REDD = "/mnt/c/Users/gdialektakis/Desktop/HEART-Project/datasources/datasets/redd.h5"
 REFIT = ''

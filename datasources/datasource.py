@@ -8,11 +8,12 @@ from fuzzywuzzy import fuzz
 from nilmtk import DataSet, MeterGroup
 from pandas import DataFrame
 
-from datasources.paths_manager import UK_DALE, REDD, REFIT
+from datasources.paths_manager import UK_DALE, REDD, REFIT, UK_DALE_AUGMENTED
 from exceptions.lab_exceptions import LabelNormalizationError
 from utils.logger import timing, TIMING, info, debug
 
 NAME_UK_DALE = 'UKDALE'
+NAME_UK_DALE_AUGMENTED = 'UK_DALE_AUGMENTED'
 NAME_REDD = 'REDD'
 NAME_REFIT = 'REFIT'
 SITE_METER = 'Site meter'
@@ -257,14 +258,24 @@ class DatasourceFactory:
             return DatasourceFactory.create_redd_datasource()
         elif dataset_name == NAME_REFIT:
             return DatasourceFactory.create_refit_datasource()
+        elif dataset_name == NAME_UK_DALE_AUGMENTED:
+            return DatasourceFactory.create_uk_dale_augmented_datasource()
 
     @staticmethod
     def create_uk_dale_datasource():
         return Datasource(DatasourceFactory.get_uk_dale_dataset(), NAME_UK_DALE)
 
     @staticmethod
+    def create_uk_dale_augmented_datasource():
+        return Datasource(DatasourceFactory.get_uk_dale_augmented_dataset(), NAME_UK_DALE_AUGMENTED)
+
+    @staticmethod
     def get_uk_dale_dataset():
         return DataSet(UK_DALE)
+
+    @staticmethod
+    def get_uk_dale_augmented_dataset():
+        return DataSet(UK_DALE_AUGMENTED)
 
     @staticmethod
     def create_redd_datasource():
