@@ -103,7 +103,7 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
     print(timeseries_df.shape[0])
 
     start = 0
-    end = 10000
+    end = start + 10000
     for i in range(0, 30):
         # Take 1 day at a time to train the PAR model
         timeseries_df_small = timeseries_df[start:end]
@@ -121,7 +121,7 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
         model.fit(timeseries_df_small)
         print("--- Training time for day {}: {} seconds ---".format(i, time.time() - start_time))
         # Save PAR model to disk
-        model.save('./augmentation_models/mains_model.pkl')
+        #model.save('./augmentation_models/mains_model.pkl')
 
         start_time = time.time()
         # Generate new synthetic timeseries
@@ -129,7 +129,8 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
 
         # Generate data for one day
         # 86400 == one day data
-        synthetic_mains = model.sample(num_sequences=1, sequence_length=86400)
+        seq_len = int(86400/2)
+        synthetic_mains = model.sample(num_sequences=1, sequence_length=seq_len)
         print('Generated data for day {}'.format(i))
         print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
 
@@ -204,7 +205,7 @@ def generate_synthetic_appliance_series(elec, mains_series):
         end = 10000
         for i in range(0, 30):
             # Take 1 day at a time to train the PAR model
-            timeseries_df_small = appliance_series_df[start:end]
+            appliance_series_small_df = appliance_series_df[start:end]
             start_time = time.time()
 
             model = PAR(
@@ -212,11 +213,11 @@ def generate_synthetic_appliance_series(elec, mains_series):
             )
             print('\n Fitting PAR model for: {}'.format(appliance))
             # Train the model
-            model.fit(appliance_series_df)
+            model.fit(appliance_series_small_df)
 
             # Generate data for one day
-            # 86400 == one day data
-            synthetic_data = model.sample(num_sequences=1, sequence_length=86400)
+            seq_len = int(86400/2)
+            synthetic_data = model.sample(num_sequences=1, sequence_length=seq_len)
             print('Generated data for appliance {} for day {}'.format(appliance, i))
             print("\n --- Generation time: %s seconds ---" % (time.time() - start_time))
 
@@ -311,7 +312,7 @@ if __name__ == "__main__":
 
     # Augmented mains timeseries without fridge
     # TODO: Augment the appliance timeseries as well before appending to mains
-    generate_synthetic_mains(mains_wo_appliances)
+    # generate_synthetic_mains(mains_wo_appliances)
 
     generate_synthetic_appliance_series(elec, mains_series)
     """ 
