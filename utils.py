@@ -10,30 +10,10 @@ def add_datetime(df, initial_datetime):
     df['timestamp'][0] = initial_datetime
     for i in range(len(df)):
         df['timestamp'][i + 1] = initial_datetime + datetime.timedelta(seconds=i + 1)
-        #df['timestamp'][i + 1] = local_tz.localize(df['timestamp'][i + 1])
-        #df['timestamp'][i + 1] = df['timestamp'][i + 1].replace(tzinfo=pytz.utc).astimezone(local_tz)
+        # df['timestamp'][i + 1] = local_tz.localize(df['timestamp'][i + 1])
+        # df['timestamp'][i + 1] = df['timestamp'][i + 1].replace(tzinfo=pytz.utc).astimezone(local_tz)
 
     return df
-
-
-def duplicate_df():
-    for i in range(0, 30):
-        mains_filename = './datasources/dataframes/mains/day_' + str(i) + '.pkl'
-        mains_df = pd.read_pickle(mains_filename)
-        df = pd.concat([mains_df, mains_df], ignore_index=True)
-        # mains_df.append(mains_df)
-
-        df.to_pickle('./datasources/dataframes/duplicated/mains/day_' + str(i) + '.pkl')
-        appliances = ['dish_washer', 'washing_machine']
-        for appliance in appliances:
-            appl_filename = './datasources/dataframes/appliances/' + str(appliance) + '/day' + str(i) + '.pkl'
-            appl_df = pd.read_pickle(appl_filename)
-            df2 = pd.concat([appl_df, appl_df], ignore_index=True)
-            # appl_df.append(appl_df)
-
-            df2.to_pickle('./datasources/dataframes/duplicated/appliances/' + str(appliance) + '/day' + str(i) + '.pkl')
-
-    return
 
 
 def create_mains_dataframe():
@@ -48,12 +28,11 @@ def create_mains_dataframe():
         temp_df = pd.read_pickle(filename)
 
         # Assign datetime
-        # Add one day = 24h for each separate file
-        initial_datetime = initial_datetime + datetime.timedelta(hours=24)
         temp_df = add_datetime(temp_df, initial_datetime)
         mains_df = pd.concat([mains_df, temp_df], ignore_index=True)
-        # mains_df.append(temp_df)
-    exit()
+        # Add one day = 24h for each separate file
+        initial_datetime = initial_datetime + datetime.timedelta(hours=24)
+
     mains_df.to_pickle("./datasources/dataframes/synthetic_data/synthetic_mains.pkl")
     return
 
@@ -64,18 +43,19 @@ def create_appliance_dataframe(appliance):
     if appliance == 'dish_washer':
         initial_datetime = datetime.datetime(2015, 1, 5, 6, 2, 0, 0)
     else:
-        initial_datetime = datetime.datetime(2015, 1, 5, 6, 1, 59, 0)
+        initial_datetime = datetime.datetime(2015, 1, 5, 6, 2, 1, 0)
 
     for i in range(0, 30):
         print('Dataframe {}'.format(i))
-        filename = './datasources/dataframes/duplicated/appliances/' + str(appliance) + '/day' + str(i) + '.pkl'
+        filename = './datasources/dataframes/appliances/' + str(appliance) + '/day' + str(i) + '.pkl'
         temp_df = pd.read_pickle(filename)
-
+        if i > 10:
+            a = 1
         # Assign datetime
-        # Add one day = 24h for each separate file
-        initial_datetime = initial_datetime + datetime.timedelta(hours=24)
         temp_df = add_datetime(temp_df, initial_datetime)
         appliance_df = pd.concat([appliance_df, temp_df], ignore_index=True)
+        # Add one day = 24h for each separate file
+        initial_datetime = initial_datetime + datetime.timedelta(hours=24)
 
     write_path = './datasources/dataframes/synthetic_data/synthetic_' + str(appliance) + '.pkl'
     appliance_df.to_pickle(write_path)
@@ -193,12 +173,12 @@ def compare_original_to_synthetic_appliances():
 if __name__ == "__main__":
     # check_df()
     # localize_dt()
-    # assign_index()
     # create_mains_dataframe()
+
     create_appliance_dataframe(appliance='dish_washer')
     print('---------------')
     print('Dish washer done!')
     print('---------------')
     create_appliance_dataframe(appliance='washing_machine')
-
+    assign_index()
     compare_original_to_synthetic_appliances()
