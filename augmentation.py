@@ -18,9 +18,6 @@ import os.path
 import time
 
 
-# plt.style.use('ggplot')
-# rcParams['figure.figsize'] = (13, 10)
-
 def series_to_df(series):
     df = series.to_frame()
     df['timestamp'] = df.index
@@ -70,18 +67,6 @@ def extract_appliance_timeseries(elec, appliance: str):
     return appliance_series
 
 
-# Probably obsolete....just for testing...
-def subtract_from_mains(mains_series: pd.Series, appliances_series: pd.Series):
-    mains_wo_appliance = mains_series.subtract(appliances_series, fill_value=0)
-    mains_wo_appliance_small = mains_wo_appliance[:1000]
-    pickle.dump(mains_wo_appliance_small, open('series_sample', 'wb'))
-
-    mains_wo_appliance_df = mains_wo_appliance.to_frame()
-    mains_wo_appliance_df['timestamp'] = mains_wo_appliance_df.index
-    # print(mains_wo_appliance_df.head())
-    return mains_wo_appliance_df
-
-
 def subtract_target_appliances_from_mains(mains_series: pd.Series, elec):
     appliances = ['washing machine', 'dish washer']
 
@@ -122,8 +107,7 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
         timeseries_df_small = timeseries_df[start:end]
         # Transform multi-index df to regular df
         timeseries_df_small.columns = timeseries_df_small.columns.get_level_values(0)
-        # print("Mains time-series df small: ")
-        # print(timeseries_df_small.head())
+
         sequence_index = 'timestamp'
         model = PAR(
             sequence_index=sequence_index,
@@ -152,15 +136,6 @@ def generate_synthetic_mains(timeseries_df: pd.DataFrame):
 
         start = start + 10000 * 10
         end = end + 10000 * 10
-
-    print('\n Last 10 rows for original mains: ')
-    print(timeseries_df_small.tail(10))
-
-    print('\n First rows of synthetic mains')
-    print(synthetic_mains.head(10))
-
-    print('\n Last rows of synthetic mains')
-    print(synthetic_mains.tail(10))
 
     return
 
@@ -222,29 +197,28 @@ def create_final_augmented_dataframe(mains_series):
     print('Synthetic mains head')
     print(synthetic_mains_df.head(5))
 
-
     synthetic_dish_washer_df = pd.read_pickle('./datasources/dataframes/synthetic_data/synthetic_dish_washer.pkl')
     synthetic_wash_machine_df = pd.read_pickle('./datasources/dataframes/synthetic_data/synthetic_washing_machine.pkl')
-
 
     # Alignment
     synthetic_dish_washer_df_aligned = synthetic_dish_washer_df.copy()
     synthetic_wash_machine_df_aligned = synthetic_wash_machine_df.copy()
 
     _, synthetic_dish_washer_df_aligned['power'] = align_timeseries(synthetic_mains_df['power'],
-                                                            synthetic_dish_washer_df['power'])
+                                                                    synthetic_dish_washer_df['power'])
 
     _, synthetic_wash_machine_df_aligned['power'] = align_timeseries(synthetic_mains_df['power'],
-                                                             synthetic_wash_machine_df['power'])
+                                                                     synthetic_wash_machine_df['power'])
 
     # Add synthetic appliances dfs to synthetic mains df
     synthetic_mains_before = synthetic_mains_df.copy()
-    synthetic_mains_df['power'] = synthetic_mains_df['power'].add(synthetic_dish_washer_df_aligned['power'], fill_value=0)
-    synthetic_mains_df['power'] = synthetic_mains_df['power'].add(synthetic_wash_machine_df_aligned['power'], fill_value=0)
+    synthetic_mains_df['power'] = synthetic_mains_df['power'].add(synthetic_dish_washer_df_aligned['power'],
+                                                                  fill_value=0)
+    synthetic_mains_df['power'] = synthetic_mains_df['power'].add(synthetic_wash_machine_df_aligned['power'],
+                                                                  fill_value=0)
 
     print('Total energy before and after addition: ')
     compute_total_energy(synthetic_mains_before, synthetic_mains_df)
-
 
     # Append synthetic df to original data
     augmented_mains = pd.concat([original_mains_df, synthetic_mains_df], ignore_index=False)
@@ -276,7 +250,7 @@ def write_data_to_hdf5(augmented_timeseries):
     # TODO: Check if we also need to store the synthetic appliance series to the file
     # For more information: https://pandas.pydata.org/docs/reference/api/pandas.DataFrame.to_hdf.html
     augmented_timeseries.to_hdf(path_or_buf='/mnt/c/Users/gdialektakis/Desktop/torch-nilm-main/datasources/datasets'
-                                '/ukdale_augmented.h5',
+                                            '/ukdale_augmented.h5',
                                 key='/building1/elec/meter54', format='table', mode='a', index=False)
 
     return
@@ -332,9 +306,6 @@ if __name__ == "__main__":
     """ 
     # Store augmented time series to .h5 file for later usage
     write_data_to_hdf5(augmented_mains)
-
-    # We need the original appliances dfs aligned....
-    appliances_dfs = [washing_machine_df, washer_df]
 
     # Write each appliance df to .h5 file
     for ap_df in appliances_dfs:

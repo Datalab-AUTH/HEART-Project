@@ -20,20 +20,6 @@ experiment_parameters = {
     NOISE_FACTOR: 0,
 }
 
-experiment_parameters = {
-    EPOCHS: 20,
-    ITERATIONS: 1,
-    INFERENCE_CPU: False,
-    SAMPLE_PERIOD: 6,
-    BATCH_SIZE: 256, # I believe you can change it if you change also 'cnn_dim'. It has to be a product of 128
-    ITERABLE_DATASET: False,
-    PREPROCESSING_METHOD: SupportedPreprocessingMethods.ROLLING_WINDOW, # you can try other methods here as well
-    FIXED_WINDOW: None,
-    FILLNA_METHOD: None,
-    SUBSEQ_WINDOW: None,
-    TRAIN_TEST_SPLIT: 0.8,
-    NOISE_FACTOR: 0,
-}
 
 devices = [
     ElectricalAppliances.MICROWAVE,
@@ -55,10 +41,6 @@ model_hparams = [
         'hparams': {'input_dim': 100},
     },
     {
-        'model_name': 'VAE',
-        'hparams': {'window_size': None, 'cnn_dim': 256, 'kernel_size': 3, 'latent_dim': 16},
-    },
-    {
         'model_name': 'SimpleGru',
         'hparams': {},
     },
@@ -68,10 +50,6 @@ model_hparams = [
     },
     {
         'model_name': 'S2P',
-        'hparams': {'window_size': None},
-    },
-    {
-        'model_name': 'SAED',
         'hparams': {'window_size': None},
     }
 
